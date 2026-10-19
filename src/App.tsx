@@ -18,7 +18,9 @@ import {
 import { 
   appendResponseToSheet, 
   syncBatchResponsesToSheet, 
-  getStoredSheetConfig 
+  getStoredSheetConfig,
+  getStoredWebhookUrl,
+  syncViaAppsScriptWebhook
 } from './services/googleSheets';
 import { 
   getStoredNotificationSettings, 
@@ -54,7 +56,9 @@ export default function App() {
   // Auth & Google Sheets State
   const [user, setUser] = useState<User | null>(null);
   const [accessToken, setAccessToken] = useState<string | null>(null);
-  const [isSheetsConnected, setIsSheetsConnected] = useState(false);
+  const [isSheetsConnected, setIsSheetsConnected] = useState<boolean>(() => {
+    return Boolean(getStoredWebhookUrl() || getStoredSheetConfig().id);
+  });
   const [googleSheetUrl, setGoogleSheetUrl] = useState<string | null>(() => {
     return getStoredSheetConfig().url;
   });
@@ -164,7 +168,18 @@ export default function App() {
         syncedToGoogleSheets: false,
       };
 
-      // Automatic background sync to Google Sheets if token is present
+      // 1. Automatic background sync via Google Apps Script Webhook (No OAuth login required)
+      const webhookUrl = getStoredWebhookUrl();
+      if (webhookUrl) {
+        try {
+          await syncViaAppsScriptWebhook(newResponse, webhookUrl);
+          newResponse.syncedToGoogleSheets = true;
+        } catch (webhookErr) {
+          console.warn('Apps Script webhook sync error:', webhookErr);
+        }
+      }
+
+      // 2. Automatic background sync via Direct OAuth if token is present
       const currentToken = accessToken || (await getAccessToken());
       if (currentToken) {
         try {
@@ -187,21 +202,34 @@ export default function App() {
   const handleSyncAllWithSheets = async () => {
     setIsSyncing(true);
     try {
+      const webhookUrl = getStoredWebhookUrl();
       const currentToken = accessToken || (await getAccessToken());
-      if (!currentToken) {
-        setIsSheetsModalOpen(true);
-        setIsSyncing(false);
+
+      if (webhookUrl) {
+        // Sync via Webhook
+        await syncViaAppsScriptWebhook(responses[0] || ({} as any), webhookUrl);
+        setResponses((prev) =>
+          prev.map((item) => ({ ...item, syncedToGoogleSheets: true }))
+        );
+        setSyncToast(`Synced responses into Google Sheet via Apps Script Webhook!`);
+        setTimeout(() => setSyncToast(null), 4000);
         return;
       }
 
-      const res = await syncBatchResponsesToSheet(responses, currentToken);
-      setGoogleSheetUrl(res.spreadsheetUrl);
-      setIsSheetsConnected(true);
-      setResponses((prev) =>
-        prev.map((item) => ({ ...item, syncedToGoogleSheets: true }))
-      );
-      setSyncToast(`Successfully synced ${res.syncedCount} responses into Google Sheet!`);
-      setTimeout(() => setSyncToast(null), 4000);
+      if (currentToken) {
+        const res = await syncBatchResponsesToSheet(responses, currentToken);
+        setGoogleSheetUrl(res.spreadsheetUrl);
+        setIsSheetsConnected(true);
+        setResponses((prev) =>
+          prev.map((item) => ({ ...item, syncedToGoogleSheets: true }))
+        );
+        setSyncToast(`Successfully synced ${res.syncedCount} responses into Google Sheet!`);
+        setTimeout(() => setSyncToast(null), 4000);
+        return;
+      }
+
+      // Neither configured, open sheets modal
+      setIsSheetsModalOpen(true);
     } catch (err: any) {
       setSyncToast(`Sync error: ${err.message || 'Failed to update Google Sheet'}`);
       setTimeout(() => setSyncToast(null), 5000);
