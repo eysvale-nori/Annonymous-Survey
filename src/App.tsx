@@ -376,6 +376,7 @@ export default function App() {
           onSyncAll={handleSyncAllWithSheets}
           isSyncing={isSyncing}
           totalResponses={responses.length}
+          responses={responses}
         />
       )}
 

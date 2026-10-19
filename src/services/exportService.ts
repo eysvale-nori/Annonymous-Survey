@@ -21,6 +21,58 @@ const formatCadence = (c: CadenceOption): string => {
 };
 
 /**
+ * Copies all responses formatted as TSV for immediate 1-click paste into Google Sheets
+ */
+export const copyTableForGoogleSheets = async (responses: SurveyResponse[]): Promise<boolean> => {
+  const headers = [
+    'Response ID',
+    'Date Submitted',
+    'Engagement Frequency',
+    'Engagement Comments & Recommendations',
+    'Engagement Rating (1-5 Stars)',
+    'Engagement Preferred Days',
+    'Happy Hour Frequency',
+    'Happy Hour Comments & Recommendations',
+    'Happy Hour Rating (1-5 Stars)',
+    'Happy Hour Preferred Days',
+    'Continue Happy Hour (Yes/No/Maybe)',
+    'Continue Engagement (Yes/No/Maybe)',
+    'Other Ideas to Boost Team Spirit (Engagement & Happy Hour)',
+    'Anonymity Status',
+  ];
+
+  const rows = responses.map((r) => [
+    r.id,
+    new Date(r.submittedAt).toLocaleString(),
+    formatCadence(r.engagementFrequency),
+    (r.engagementComment || '').replace(/\t|\r?\n/g, ' '),
+    r.engagementRating,
+    (r.engagementPreferredDays || []).join(', '),
+    formatCadence(r.happyHourFrequency),
+    (r.happyHourComment || '').replace(/\t|\r?\n/g, ' '),
+    r.happyHourRating,
+    (r.happyHourPreferredDays || []).join(', '),
+    r.continueHappyHour || 'Yes',
+    r.continueEngagement || 'Yes',
+    (r.moraleIdeas || '').replace(/\t|\r?\n/g, ' '),
+    r.isAnonymous ? '100% Anonymous' : 'Identified',
+  ]);
+
+  const tsvContent = [
+    headers.join('\t'),
+    ...rows.map((row) => row.join('\t')),
+  ].join('\n');
+
+  try {
+    await navigator.clipboard.writeText(tsvContent);
+    return true;
+  } catch (err) {
+    console.error('Failed to copy to clipboard:', err);
+    return false;
+  }
+};
+
+/**
  * Exports all responses to CSV matching the specified schema
  */
 export const exportToCSV = (responses: SurveyResponse[]) => {

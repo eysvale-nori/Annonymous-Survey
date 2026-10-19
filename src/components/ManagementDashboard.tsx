@@ -15,7 +15,7 @@ import {
   HelpCircle
 } from 'lucide-react';
 import { SurveyResponse, SurveyStats, CadenceOption } from '../types/survey';
-import { exportToCSV, exportToPDF } from '../services/exportService';
+import { exportToCSV, exportToPDF, copyTableForGoogleSheets } from '../services/exportService';
 
 interface ManagementDashboardProps {
   responses: SurveyResponse[];
@@ -76,6 +76,17 @@ export const ManagementDashboard: React.FC<ManagementDashboardProps> = ({
     setTimeout(() => setExportNotice(null), 3500);
   };
 
+  const handleCopyForGoogleSheets = async () => {
+    const success = await copyTableForGoogleSheets(responses);
+    if (success) {
+      setExportNotice('Copied all survey answers for Google Sheets! Opening sheets.new (press Ctrl+V / Cmd+V to paste)...');
+      setTimeout(() => {
+        window.open('https://sheets.new', '_blank');
+      }, 400);
+      setTimeout(() => setExportNotice(null), 5000);
+    }
+  };
+
   return (
     <div className="max-w-6xl mx-auto py-6 px-4 sm:px-6 space-y-8">
       {/* Top Banner */}
@@ -97,11 +108,20 @@ export const ManagementDashboard: React.FC<ManagementDashboardProps> = ({
         {/* Action Buttons */}
         <div className="flex flex-wrap items-center gap-2.5">
           <button
+            onClick={handleCopyForGoogleSheets}
+            title="Copies table and opens a blank Google Sheet to paste immediately"
+            className="inline-flex items-center gap-1.5 px-3.5 py-2.5 rounded-xl bg-emerald-600 hover:bg-emerald-500 text-white font-bold text-xs sm:text-sm shadow-md shadow-emerald-600/25 transition cursor-pointer"
+          >
+            <FileSpreadsheet className="w-4 h-4" />
+            <span>Copy & Open in Google Sheets</span>
+          </button>
+
+          <button
             onClick={handleExportPDF}
             className="inline-flex items-center gap-1.5 px-3.5 py-2.5 rounded-xl bg-amber-500 hover:bg-amber-400 text-slate-950 font-bold text-xs sm:text-sm shadow-md shadow-amber-500/20 transition cursor-pointer"
           >
             <FileDown className="w-4 h-4" />
-            <span>Export PDF Report</span>
+            <span>Export PDF</span>
           </button>
 
           <button
@@ -120,7 +140,7 @@ export const ManagementDashboard: React.FC<ManagementDashboardProps> = ({
               className="inline-flex items-center gap-1.5 px-3.5 py-2.5 rounded-xl bg-emerald-950/70 border border-emerald-600/50 hover:bg-emerald-900 text-emerald-300 text-xs sm:text-sm font-semibold transition"
             >
               <ExternalLink className="w-4 h-4 text-emerald-400" />
-              <span>Open Google Sheet</span>
+              <span>Live Google Sheet</span>
             </a>
           ) : (
             <button
@@ -128,7 +148,7 @@ export const ManagementDashboard: React.FC<ManagementDashboardProps> = ({
               className="inline-flex items-center gap-1.5 px-3.5 py-2.5 rounded-xl bg-slate-800 hover:bg-slate-700 text-slate-300 border border-slate-600 text-xs sm:text-sm font-semibold transition cursor-pointer"
             >
               <FileSpreadsheet className="w-4 h-4 text-slate-400" />
-              <span>Connect Google Sheets</span>
+              <span>Sync Settings</span>
             </button>
           )}
         </div>
