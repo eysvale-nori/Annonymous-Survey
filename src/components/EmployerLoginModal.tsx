@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { Lock, X, KeyRound, ShieldAlert, CheckCircle2, UserCheck } from 'lucide-react';
+import { Lock, X, KeyRound, ShieldAlert } from 'lucide-react';
 import { googleSignIn } from '../services/auth';
 
 interface EmployerLoginModalProps {
@@ -8,7 +8,7 @@ interface EmployerLoginModalProps {
   onLoginSuccess: () => void;
 }
 
-const DEFAULT_EMPLOYER_PASSCODE = 'admin2026';
+const EMPLOYER_PASSCODE = 'Carecoradmin2026';
 
 export const EmployerLoginModal: React.FC<EmployerLoginModalProps> = ({
   isOpen,
@@ -24,12 +24,12 @@ export const EmployerLoginModal: React.FC<EmployerLoginModalProps> = ({
   const handlePasscodeSubmit = (e: React.FormEvent) => {
     e.preventDefault();
     setError(null);
-    if (passcode.trim() === DEFAULT_EMPLOYER_PASSCODE || passcode.trim().toLowerCase() === 'admin' || passcode.trim() === '1234') {
+    if (passcode.trim() === EMPLOYER_PASSCODE) {
       onLoginSuccess();
       onClose();
       setPasscode('');
     } else {
-      setError('Invalid employer access code. (Default code: admin2026)');
+      setError('Incorrect passcode. Access is restricted to authorized management.');
     }
   };
 
@@ -84,9 +84,8 @@ export const EmployerLoginModal: React.FC<EmployerLoginModalProps> = ({
         {/* Form: Enter Passcode */}
         <form onSubmit={handlePasscodeSubmit} className="space-y-4 mb-5">
           <div>
-            <label className="block text-xs font-bold text-slate-700 mb-1 flex items-center justify-between">
-              <span>Management Access Passcode</span>
-              <span className="text-[11px] font-normal text-slate-400">Default: admin2026</span>
+            <label className="block text-xs font-bold text-slate-700 mb-1.5">
+              Management Access Passcode
             </label>
             <div className="relative">
               <KeyRound className="w-4 h-4 text-slate-400 absolute left-3 top-3" />
