@@ -18,6 +18,7 @@ interface SubmissionSuccessProps {
   onReset: () => void;
   onViewDashboard: () => void;
   googleSheetUrl: string | null;
+  isEmployer?: boolean;
 }
 
 const formatCadence = (c: CadenceOption): string => {
@@ -38,6 +39,7 @@ export const SubmissionSuccess: React.FC<SubmissionSuccessProps> = ({
   onReset,
   onViewDashboard,
   googleSheetUrl,
+  isEmployer = false,
 }) => {
   const [copied, setCopied] = useState(false);
 
@@ -208,7 +210,7 @@ OTHER IDEAS TO BOOST TEAM SPIRIT:
         </h2>
 
         <p className="text-xs sm:text-sm text-slate-600 max-w-md mx-auto mb-6">
-          Your feedback has been recorded. 
+          Your feedback has been recorded anonymously. 
           Your preferred cadence and ideas will guide our upcoming planning committee!
         </p>
 
@@ -325,7 +327,8 @@ OTHER IDEAS TO BOOST TEAM SPIRIT:
             <span>Download PDF</span>
           </button>
 
-          {googleSheetUrl && (
+          {/* Google Sheets button shown ONLY to Employer */}
+          {isEmployer && googleSheetUrl && (
             <a
               href={googleSheetUrl}
               target="_blank"
@@ -342,19 +345,22 @@ OTHER IDEAS TO BOOST TEAM SPIRIT:
         <div className="pt-4 border-t border-slate-100 flex flex-col sm:flex-row items-center justify-between gap-3">
           <button
             onClick={onReset}
-            className="text-xs text-slate-500 hover:text-slate-800 font-medium flex items-center gap-1 transition"
+            className="text-xs text-slate-500 hover:text-slate-800 font-medium flex items-center gap-1 transition mx-auto sm:mx-0"
           >
             <ArrowLeft className="w-3.5 h-3.5" />
             <span>Submit another survey response</span>
           </button>
 
-          <button
-            onClick={onViewDashboard}
-            className="inline-flex items-center gap-1.5 px-4 py-2 rounded-xl bg-slate-900 text-white text-xs font-semibold hover:bg-slate-800 transition"
-          >
-            <BarChart3 className="w-3.5 h-3.5 text-amber-400" />
-            <span>View Management Trends & Reports</span>
-          </button>
+          {/* Management Report Link shown ONLY to Employer */}
+          {isEmployer && (
+            <button
+              onClick={onViewDashboard}
+              className="inline-flex items-center gap-1.5 px-4 py-2 rounded-xl bg-slate-900 text-white text-xs font-semibold hover:bg-slate-800 transition"
+            >
+              <BarChart3 className="w-3.5 h-3.5 text-amber-400" />
+              <span>View Management Trends & Reports</span>
+            </button>
+          )}
         </div>
       </div>
     </div>

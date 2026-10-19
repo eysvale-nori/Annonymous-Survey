@@ -6,6 +6,7 @@ import { SubmissionSuccess } from './components/SubmissionSuccess';
 import { ManagementDashboard } from './components/ManagementDashboard';
 import { GoogleSheetsModal } from './components/GoogleSheetsModal';
 import { NotificationModal } from './components/NotificationModal';
+import { EmployerLoginModal } from './components/EmployerLoginModal';
 import { SurveyResponse, NotificationSettings } from './types/survey';
 import { INITIAL_RESPONSES, calculateStats } from './data/initialData';
 import { 
@@ -21,14 +22,19 @@ import {
 } from './services/googleSheets';
 import { 
   getStoredNotificationSettings, 
-  saveNotificationSettings 
 } from './services/notifications';
-import { Bell, ShieldCheck, Sparkles, AlertCircle } from 'lucide-react';
+import { Bell, Sparkles, Lock, ShieldCheck } from 'lucide-react';
 
 const LOCAL_STORAGE_KEY = 'hh_survey_responses_v2';
 
 export default function App() {
-  // Navigation & View State
+  // Role & Authentication State
+  const [isEmployer, setIsEmployer] = useState<boolean>(() => {
+    return sessionStorage.getItem('hh_is_employer') === 'true';
+  });
+  const [isEmployerModalOpen, setIsEmployerModalOpen] = useState(false);
+
+  // Navigation & View State (Employees default strictly to survey)
   const [activeTab, setActiveTab] = useState<'survey' | 'dashboard'>('survey');
   const [submittedResponse, setSubmittedResponse] = useState<SurveyResponse | null>(null);
 
@@ -100,6 +106,23 @@ export default function App() {
     };
   }, []);
 
+  // Handle Employer Login
+  const handleEmployerLoginSuccess = () => {
+    setIsEmployer(true);
+    sessionStorage.setItem('hh_is_employer', 'true');
+    setActiveTab('dashboard');
+    setSyncToast('Unlocked Employer Mode: Management Report & Google Sheets enabled.');
+    setTimeout(() => setSyncToast(null), 4000);
+  };
+
+  // Handle Employer Logout
+  const handleEmployerLogout = () => {
+    setIsEmployer(false);
+    sessionStorage.removeItem('hh_is_employer');
+    setActiveTab('survey');
+    setSubmittedResponse(null);
+  };
+
   // Handle Google Sign In
   const handleGoogleSignIn = async () => {
     const result = await googleSignIn();
@@ -119,7 +142,7 @@ export default function App() {
     }
   };
 
-  // Handle Sign Out
+  // Handle Sign Out from Google
   const handleSignOut = async () => {
     await logout();
     setUser(null);
@@ -127,7 +150,7 @@ export default function App() {
     setIsSheetsConnected(false);
   };
 
-  // Handle Survey Form Submission
+  // Handle Survey Form Submission (Available to Employee & Employer)
   const handleFormSubmit = async (
     formData: Omit<SurveyResponse, 'id' | 'submittedAt' | 'syncedToGoogleSheets'>
   ) => {
@@ -141,7 +164,7 @@ export default function App() {
         syncedToGoogleSheets: false,
       };
 
-      // Attempt live sync to Google Sheets if token is present
+      // Automatic background sync to Google Sheets if token is present
       const currentToken = accessToken || (await getAccessToken());
       if (currentToken) {
         try {
@@ -160,7 +183,7 @@ export default function App() {
     }
   };
 
-  // Batch Sync All Responses
+  // Batch Sync All Responses (Employer only)
   const handleSyncAllWithSheets = async () => {
     setIsSyncing(true);
     try {
@@ -189,10 +212,17 @@ export default function App() {
 
   return (
     <div className="min-h-screen bg-slate-100/70 text-slate-900 flex flex-col font-sans selection:bg-amber-500 selection:text-slate-950">
-      {/* Global Navigation Header */}
+      {/* Global Navigation Header with Role Visibility */}
       <Header
+        isEmployer={isEmployer}
+        onOpenEmployerLogin={() => setIsEmployerModalOpen(true)}
+        onEmployerLogout={handleEmployerLogout}
         activeTab={activeTab}
         setActiveTab={(tab) => {
+          if (tab === 'dashboard' && !isEmployer) {
+            setIsEmployerModalOpen(true);
+            return;
+          }
           setActiveTab(tab);
           setSubmittedResponse(null);
         }}
@@ -215,18 +245,18 @@ export default function App() {
               hour: '2-digit',
               minute: '2-digit',
             })}
-            . Encourage team members to submit before cutoff!
+            . Encourage team members to submit on time!
           </span>
           <button
             onClick={() => setIsNotifModalOpen(true)}
-            className="underline hover:text-slate-800 ml-1 font-bold"
+            className="underline hover:text-slate-800 ml-1 font-bold cursor-pointer"
           >
             Manage
           </button>
         </div>
       )}
 
-      {/* Global Sync Toast */}
+      {/* Global Toast */}
       {syncToast && (
         <div className="fixed bottom-6 right-6 z-50 p-4 rounded-2xl bg-slate-900 text-white border border-slate-700 shadow-2xl flex items-center gap-3 animate-fadeIn text-xs sm:text-sm max-w-md">
           <Sparkles className="w-4 h-4 text-amber-400 shrink-0" />
@@ -236,25 +266,29 @@ export default function App() {
 
       {/* Main Content Area */}
       <main className="flex-1 pb-16">
-        {activeTab === 'survey' ? (
+        {/* If user is not Employer, they can ONLY see Survey Form */}
+        {!isEmployer || activeTab === 'survey' ? (
           submittedResponse ? (
             <SubmissionSuccess
               response={submittedResponse}
               onReset={() => setSubmittedResponse(null)}
               onViewDashboard={() => {
-                setSubmittedResponse(null);
-                setActiveTab('dashboard');
+                if (isEmployer) {
+                  setSubmittedResponse(null);
+                  setActiveTab('dashboard');
+                }
               }}
               googleSheetUrl={googleSheetUrl}
+              isEmployer={isEmployer}
             />
           ) : (
             <SurveyForm
               onSubmit={handleFormSubmit}
               isSubmitting={isSubmitting}
-              isSheetsConnected={isSheetsConnected}
             />
           )
         ) : (
+          /* Employer Only: Management Dashboard */
           <ManagementDashboard
             responses={responses}
             stats={stats}
@@ -273,48 +307,77 @@ export default function App() {
           <div className="flex items-center gap-2">
             <span className="font-bold text-slate-800">HAPPY HOUR AND ENGAGEMENT SURVEY</span>
             <span className="text-slate-300">|</span>
-            <span>Anonymous Employee Feedback System</span>
+            <span>100% Anonymous Feedback System</span>
           </div>
 
           <div className="flex items-center gap-4 text-xs">
-            <button
-              onClick={() => setIsSheetsModalOpen(true)}
-              className="hover:text-slate-900 transition flex items-center gap-1"
-            >
-              Google Sheets Sync
-            </button>
-            <button
-              onClick={() => setIsNotifModalOpen(true)}
-              className="hover:text-slate-900 transition flex items-center gap-1"
-            >
-              Push Reminders
-            </button>
-            <button
-              onClick={() => {
-                setActiveTab('dashboard');
-                setSubmittedResponse(null);
-              }}
-              className="hover:text-slate-900 transition flex items-center gap-1"
-            >
-              Executive Report
-            </button>
+            {isEmployer ? (
+              <>
+                <button
+                  onClick={() => setIsSheetsModalOpen(true)}
+                  className="hover:text-slate-900 transition flex items-center gap-1 font-semibold text-emerald-700"
+                >
+                  Google Sheets Sync
+                </button>
+                <button
+                  onClick={() => {
+                    setActiveTab('dashboard');
+                    setSubmittedResponse(null);
+                  }}
+                  className="hover:text-slate-900 transition flex items-center gap-1 font-semibold text-amber-700"
+                >
+                  Management Report
+                </button>
+                <button
+                  onClick={handleEmployerLogout}
+                  className="hover:text-rose-700 transition flex items-center gap-1 text-slate-400"
+                >
+                  Exit Employer Mode
+                </button>
+              </>
+            ) : (
+              <>
+                <button
+                  onClick={() => setIsNotifModalOpen(true)}
+                  className="hover:text-slate-900 transition flex items-center gap-1"
+                >
+                  Push Reminders
+                </button>
+                <button
+                  onClick={() => setIsEmployerModalOpen(true)}
+                  className="text-slate-400 hover:text-slate-700 transition flex items-center gap-1"
+                >
+                  <Lock className="w-3 h-3" />
+                  <span>Employer Access</span>
+                </button>
+              </>
+            )}
           </div>
         </div>
       </footer>
 
-      {/* Google Sheets Modal */}
-      <GoogleSheetsModal
-        isOpen={isSheetsModalOpen}
-        onClose={() => setIsSheetsModalOpen(false)}
-        user={user}
-        isSheetsConnected={isSheetsConnected}
-        spreadsheetUrl={googleSheetUrl}
-        onSignIn={handleGoogleSignIn}
-        onSignOut={handleSignOut}
-        onSyncAll={handleSyncAllWithSheets}
-        isSyncing={isSyncing}
-        totalResponses={responses.length}
+      {/* Employer Login Modal */}
+      <EmployerLoginModal
+        isOpen={isEmployerModalOpen}
+        onClose={() => setIsEmployerModalOpen(false)}
+        onLoginSuccess={handleEmployerLoginSuccess}
       />
+
+      {/* Google Sheets Modal (Employer Only) */}
+      {isEmployer && (
+        <GoogleSheetsModal
+          isOpen={isSheetsModalOpen}
+          onClose={() => setIsSheetsModalOpen(false)}
+          user={user}
+          isSheetsConnected={isSheetsConnected}
+          spreadsheetUrl={googleSheetUrl}
+          onSignIn={handleGoogleSignIn}
+          onSignOut={handleSignOut}
+          onSyncAll={handleSyncAllWithSheets}
+          isSyncing={isSyncing}
+          totalResponses={responses.length}
+        />
+      )}
 
       {/* Notification Modal */}
       <NotificationModal
