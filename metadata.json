@@ -1,0 +1,6 @@
+{
+  "name": "Happy Hour & Engagement Survey",
+  "description": "Anonymous employee feedback survey for team happy hours and engagement with automated Google Sheets syncing, email confirmations, reminder notifications, and PDF/CSV reporting.",
+  "requestFramePermissions": ["notifications"],
+  "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
+}
